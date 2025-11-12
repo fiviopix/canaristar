@@ -15,6 +15,7 @@ public class BackendApplication {
         for (DotenvEntry entry : dotenv.entries()) {
             String key = entry.getKey();
             String value = entry.getValue();
+
             System.setProperty(key, value);
         }
 
