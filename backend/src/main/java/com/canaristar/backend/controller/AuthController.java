@@ -17,10 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Random;
 
 @RestController
 @RequestMapping("/auth")
@@ -73,11 +71,11 @@ public class AuthController {
             return ResponseEntity.badRequest().body("No user found for verification");
         }
 
-        userService.saveUser(user);
+        User savedUser = userService.saveUser(user);
         otpService.removeOtp(email);
         otpService.removeUnverifiedUser(email);
 
-        return ResponseEntity.ok(new AuthResponse(true, "Registration successful", null));
+        return ResponseEntity.ok(new AuthResponse(true, savedUser.getId(), null));
     }
 
     @PostMapping("/signin")
@@ -106,6 +104,6 @@ public class AuthController {
         Authentication auth = new UsernamePasswordAuthenticationToken(user.getEmail(), null, null);
         String token = jwtProvider.generateToken(auth);
 
-        return ResponseEntity.ok(new AuthResponse(true, "Login successful", token));
+        return ResponseEntity.ok(new AuthResponse(true, user.getId(), token));
     }
 }

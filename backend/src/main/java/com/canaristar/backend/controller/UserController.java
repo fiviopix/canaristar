@@ -1,0 +1,129 @@
+package com.canaristar.backend.controller;
+
+import com.canaristar.backend.entity.User;
+import com.canaristar.backend.request.AuthRequest;
+import com.canaristar.backend.service.email.EmailService;
+import com.canaristar.backend.service.otp.OtpService;
+import com.canaristar.backend.service.user.UserService;
+import com.canaristar.backend.utils.otp.OTPUtils;
+import jakarta.mail.MessagingException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/user")
+public class UserController {
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private EmailService emailService;
+
+    @Autowired
+    private OtpService otpService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @GetMapping("/{id}")
+    public User getUserById(@PathVariable String id) {
+        Optional<User> userOpt = userService.findById(id);
+
+        return userOpt.orElse(null);
+    }
+
+    @GetMapping("/get-id")
+    public ResponseEntity<?> getIdByEmail(@RequestParam String email) {
+        Optional<User> userOpt = userService.findByEmail(email);
+
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(userOpt.get().getId());
+    }
+
+    @GetMapping
+    public ResponseEntity<List<User>> getAllUsers() {
+        List<User> users = userService.findAll();
+
+        if (users.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(users);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteUserById(@PathVariable String id) {
+        Optional<User> userOpt = userService.findById(id);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        userService.deleteUser(userOpt.get());
+
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping
+    public ResponseEntity<User> updateUser(@RequestBody User user) {
+        Optional<User> existing = userService.findById(user.getId());
+
+        if (existing.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        userService.saveUser(user);
+
+        return ResponseEntity.ok(user);
+    }
+
+    @PostMapping("/password/reset")
+    public ResponseEntity<?> requestResetPassword(@RequestBody AuthRequest request) throws MessagingException {
+        Optional<User> userOpt = userService.findByEmail(request.getEmail());
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("User not found");
+        }
+
+        String otp = OTPUtils.generateOTP();
+        otpService.saveOtp(request.getEmail(), otp);
+        otpService.setTempPassword(request.getEmail(), request.getPassword());
+
+        emailService.sendVerificationOtpMail(request.getEmail(), otp);
+        return ResponseEntity.ok("OTP sent");
+    }
+
+    @PostMapping("/password/verify")
+    public ResponseEntity<?> verifyPasswordOtp(@RequestParam String email, @RequestParam String otp) {
+        String storedOtp = otpService.getOtp(email);
+
+        if (storedOtp == null || !storedOtp.equals(otp)) {
+            return ResponseEntity.badRequest().body("Invalid OTP");
+        }
+
+        Optional<User> userOpt = userService.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("User not found");
+        }
+
+        String newPassword = otpService.getTempPassword(email);
+        if (newPassword == null || newPassword.isBlank()) {
+            return ResponseEntity.badRequest().body("Invalid Password");
+        }
+
+        User user = userOpt.get();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userService.saveUser(user);
+
+        otpService.removeOtp(email);
+        otpService.removeTempPassword(email);
+
+        return ResponseEntity.ok("Password updated");
+    }
+}
