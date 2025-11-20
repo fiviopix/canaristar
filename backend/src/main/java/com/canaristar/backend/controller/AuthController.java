@@ -1,6 +1,7 @@
 package com.canaristar.backend.controller;
 
 import com.canaristar.backend.entity.User;
+import com.canaristar.backend.enums.Role;
 import com.canaristar.backend.request.AuthRequest;
 import com.canaristar.backend.response.AuthResponse;
 import com.canaristar.backend.service.email.EmailService;
@@ -49,6 +50,7 @@ public class AuthController {
         String otp = OTPUtils.generateOTP();
         otpService.saveOtp(user.getEmail(), otp);
 
+        user.setRole(Role.USER);
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         otpService.saveUnverifiedUser(user.getEmail(), user);
 
