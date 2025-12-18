@@ -20,41 +20,41 @@ import Analytics from "./components/Analytics";
 import AdminProductDataDetails from "./pages/AdminProductDataDetails";
 
 function App() {
-  return (
-    <Router>
-      <Header />
+    return (
+        <Router>
+            <Header />
 
-      <ToastContainer theme="dark" />
-      <Routes>
-        <Route path="/" element={<Home />} />
+            <ToastContainer theme="dark" />
+            <Routes>
+                <Route path="/" element={<Home />} />
 
-        <Route path="/signin" element={<SignIn />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/otp-verification/:email" element={<OTP />} />
+                <Route path="/signin" element={<SignIn />} />
+                <Route path="/signup" element={<SignUp />} />
+                <Route path="/otp-verification/:email" element={<OTP />} />
 
-        <Route path="/search" element={<SearchProducts />} />
-        <Route path="/menu" element={<Menu />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/orders" element={<Orders />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/analytics" element={<Analytics />} />
+                <Route path="/search" element={<SearchProducts />} />
+                <Route path="/menu" element={<Menu />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/orders" element={<Orders />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/analytics" element={<Analytics />} />
 
-        <Route path="/product-details/:id" element={<ProductDetails />} />
-        <Route path="/contact-details/:id" element={<ContactDetails />} />
+                <Route path="/product-details/:id" element={<ProductDetails />} />
+                <Route path="/contact-details/:id" element={<ContactDetails />} />
 
-        <Route path="/create-product" element={<CreateProduct />} />
-        <Route
-          path="/admin-product-data-details/:id"
-          element={<AdminProductDataDetails />}
-        />
+                <Route path="/create-product" element={<CreateProduct />} />
+                <Route
+                    path="/admin-product-data-details/:id"
+                    element={<AdminProductDataDetails />}
+                />
 
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+                <Route path="*" element={<NotFound />} />
+            </Routes>
 
-      <Footer />
-    </Router>
-  );
+            <Footer />
+        </Router>
+    );
 }
 
 export default App;
