@@ -27,6 +27,7 @@ public class ContactUsController {
 
     @GetMapping("/all")
     public ResponseEntity<?> findAllByEmail(@RequestParam String email) {
+
         List<ContactUs> list = contactUsService.findByEmail(email);
 
         if (list.isEmpty()) {

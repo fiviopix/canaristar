@@ -1,23 +1,40 @@
 package com.canaristar.backend.service.orders;
 
 import com.canaristar.backend.entity.IdempotencyRecord;
+import com.canaristar.backend.entity.LogDay;
 import com.canaristar.backend.entity.orders.Orders;
 import com.canaristar.backend.enums.OrdersType;
 import com.canaristar.backend.repository.IdempotencyRepository;
+import com.canaristar.backend.repository.LogDayRepository;
 import com.canaristar.backend.repository.OrdersRepository;
 import com.canaristar.backend.service.userOrders.UserOrdersService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class OrdersServiceImpl implements OrdersService {
 
+    private static final Logger logger = LoggerFactory.getLogger(OrdersServiceImpl.class);
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
     @Autowired
     private OrdersRepository ordersRepository;
+
+    @Autowired
+    private LogDayRepository logDayRepository;
 
     @Autowired
     private IdempotencyRepository idempotencyRepository;
@@ -32,18 +49,25 @@ public class OrdersServiceImpl implements OrdersService {
             String requestHash
     ) {
 
+        logger.info("createOrderIdempotent called userId={} idempotencyKey={}", orders.getUserId(), idempotencyKey);
+
         Optional<IdempotencyRecord> recordOpt = idempotencyRepository.findByKey(idempotencyKey);
 
         if (recordOpt.isPresent()) {
             IdempotencyRecord record = recordOpt.get();
 
             if (!record.getRequestHash().equals(requestHash)) {
+                logger.error("Idempotency key reused with different payload for key={}", idempotencyKey);
                 throw new RuntimeException("Idempotency key reused with different payload");
             }
 
-            return ordersRepository
+            Orders existing = ordersRepository
                     .findById(record.getResponseOrderId())
                     .orElseThrow();
+
+            logOrderEvent("Idempotency hit - returning existing order", existing.getId(), existing.getUserId(), null);
+
+            return existing;
         }
 
         orders.setIdempotencyKey(idempotencyKey);
@@ -58,6 +82,8 @@ public class OrdersServiceImpl implements OrdersService {
         record.setResponseOrderId(saved.getId());
 
         idempotencyRepository.save(record);
+
+        logOrderEvent("Order created", saved.getId(), saved.getUserId(), null);
 
         return saved;
     }
@@ -75,7 +101,40 @@ public class OrdersServiceImpl implements OrdersService {
         Orders updated = ordersRepository.save(old);
         userOrdersService.updateUserOrder(old.getUserId(), updated);
 
+        logOrderEvent("Order updated", old.getId(), old.getUserId(), updated.getRazorpayPaymentId());
+
         return updated;
+    }
+
+    private void logOrderEvent(String message, String orderId, String userId, String paymentId) {
+        try {
+            LocalDate today = LocalDate.now();
+            String dateStr = today.format(DATE_FMT);
+
+            Optional<LogDay> existing = logDayRepository.findByDate(dateStr);
+            LogDay logDay;
+
+            if (existing.isPresent()) {
+                logDay = existing.get();
+            } else {
+                logDay = new LogDay();
+                logDay.setDate(dateStr);
+            }
+
+            LogDay.LogEntryItem entry = new LogDay.LogEntryItem(
+                    LocalDateTime.now(),
+                    "OrderService",
+                    message,
+                    orderId,
+                    paymentId,
+                    null
+            );
+
+            logDay.getEntries().add(entry);
+            logDayRepository.save(logDay);
+        } catch (Exception e) {
+            logger.warn("Failed to persist order log: {}", e.getMessage());
+        }
     }
 
     @Override
